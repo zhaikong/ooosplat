@@ -5,7 +5,6 @@ target/
 src-tauri/target/
 src-tauri/gen/
 .idea/
-.vscode/
 *.log
 *.tmp
 .DS_Store
@@ -30,3 +29,4 @@ engines/linux/colmap/**
 dist-engines/
 engines/macos/arm64/**
 !engines/macos/arm64/README.md
+config.bat

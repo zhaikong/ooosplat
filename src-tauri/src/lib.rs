@@ -18,6 +18,40 @@ pub mod telemetry;
 pub mod updates;
 pub mod video;
 
+#[cfg(all(test, windows, target_env = "msvc"))]
+mod windows_manifest_tests {
+    #[test]
+    fn test_executable_embeds_common_controls_v6_without_a_sidecar() {
+        use windows_sys::Win32::System::LibraryLoader::{
+            FindResourceW, GetModuleHandleW, LoadResource, LockResource, SizeofResource,
+        };
+        // Read the executing EXE's embedded RT_MANIFEST (24), resource ID 1.
+        // This cannot accidentally pass by finding an external .exe.manifest.
+        unsafe {
+            let module = GetModuleHandleW(std::ptr::null());
+            assert!(!module.is_null());
+            let resource = FindResourceW(
+                module,
+                std::ptr::without_provenance(1),
+                std::ptr::without_provenance(24),
+            );
+            assert!(
+                !resource.is_null(),
+                "The test EXE must embed its own manifest"
+            );
+            let size = SizeofResource(module, resource) as usize;
+            let loaded = LoadResource(module, resource);
+            let data = LockResource(loaded);
+            assert!(size > 0 && !data.is_null());
+            let xml =
+                std::str::from_utf8(std::slice::from_raw_parts(data.cast::<u8>(), size)).unwrap();
+            assert!(xml.contains("Microsoft.Windows.Common-Controls"));
+            assert!(xml.contains("6.0.0.0"));
+            assert!(xml.contains("6595b64144ccf1df"));
+        }
+    }
+}
+
 pub fn run_app() {
     tauri::Builder::default()
         // Keep this first so a second process exits before other plugins initialize.

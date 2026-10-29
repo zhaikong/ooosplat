@@ -59,6 +59,21 @@ SPZ证据：`.cache/spz-adjustment-1793276026665/verification.json`。测试脚�
 
 保留现有未提交内容与测试素材；未提交、推送、改版本号或生成安装包。
 
+## 后续 Windows Actions 启动修复（2026-10-29）
+
+提交 `28dcaf8` 的 [Windows Actions #40894838513](https://github.com/ooolabdev/ooosplat/actions/runs/40894838513) 在 Rust 测试程序启动时返回 `0xC0000139 / STATUS_ENTRYPOINT_NOT_FOUND`，没有实际运行测试；前端、引擎安装和格式检查均已通过。这个问题并非仅限本地环境：Tauri 默认资源通过 `rustc-link-arg-bins` 只链接到程序目标，库测试 EXE 没有 Common Controls v6 清单，而新增应用级调用链使其引入了 `TaskDialogIndirect`。
+
+永久修复在 `src-tauri/build.rs`：仅对 Windows MSVC 目标，由链接器统一内嵌原有 Common Controls v6 依赖，覆盖库测试、程序测试及应用映像；关闭 Tauri 重复的清单资源，保留图标、版本资源及原有无 UAC 片段的行为。macOS、Linux和非MSVC路径不变。参见 [Cargo构建参数](https://doc.rust-lang.org/cargo/reference/build-scripts.html#rustc-link-arg) 和 [MSVC清单内嵌规则](https://learn.microsoft.com/en-us/cpp/build/reference/manifest-create-side-by-side-assembly-manifest?view=msvc-170)。未跳过测试、禁用对话框功能或添加外置清单的CI兜底。
+
+验证：
+
+- 新增 Windows 回归测试，直接从当前 EXE 的资源ID 1读取内嵌 `RT_MANIFEST`，验证 v6依赖；不能因旁边存在外置清单而误通过。
+- 把测试 EXE 单独复制到全新的 `.cache/windows-manifest-regression-1379b79ce5b84ca4912a99245b9e7a45/`，确认没有 `.exe.manifest`，仍启动并通过523项测试、28项现有忽略。该独立文件不依赖此前手工放置的清单。
+- 完整 `cargo +1.99.0 test --offline`（非仅 `--lib`）通过：523项库测试通过，两个程序测试目标及文档测试均通过。
+- 使用 Windows SDK `mt.exe` 直接回读 EXE，确认内嵌 Common Controls v6依赖、没有新增UAC片段。
+- `cargo +1.99.0 clippy --offline --all-targets -- -D warnings`、格式检查及 `git diff --check` 通过。
+- 本轮没有前端或训练逻辑改动，未再生成安装包；修复提交推送后的远程 Windows 构建仍需单独确认，不能以本地测试代表远程已成功。
+
 ## English summary
 
 MCP now has 14 tools covering shared lightweight preflight, explicit user answers, generation/reshoot, identified resume, bounded execution evidence and saved-model export. Exports reuse the existing app-level Worker and edited virtual view, with unique project-local files, no-clobber publication, shared locks and export-specific SPZ consent. No training recipe, panorama High dispatch, project schema or cloud protocol change was made.
